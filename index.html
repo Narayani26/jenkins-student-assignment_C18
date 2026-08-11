@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Cute Corner ✨</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>
+        <h1>Welcome to My Cute Corner! ✨</h1>
+        <p>A cozy place on the internet just for you.</p>
+    </header>
+
+    <main>
+        <!-- Dynamic Quote Card -->
+        <section class="card">
+            <h2>Today's Reminder 🧸</h2>
+            <p id="quote">You are doing wonderful today! Keep shining.</p>
+            <button id="quote-btn">Next Sparkle ✨</button>
+        </section>
+
+        <!-- Interactive Mood Picker -->
+        <section class="card">
+            <h2>How are you feeling? 💕</h2>
+            <div class="mood-container">
+                <button onclick="pickMood('🌸 Happy')">🌸 Happy</button>
+                <button onclick="pickMood('☁️ Sleepy')">☁️ Sleepy</button>
+                <button onclick="pickMood('🍪 Hungry')">🍪 Hungry</button>
+            </div>
+            <p id="mood-reply">Click a button to share your mood!</p>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
