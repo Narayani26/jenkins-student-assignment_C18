@@ -1,3 +1,7 @@
+// --- SUPABASE INITIALIZATION ---
+
+const supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEYSUPABASE_ANON_KEY);
+
 // DOM Element References
 const canvas = document.getElementById('game-screen');
 const sCtx = canvas.getContext('2d');
@@ -16,8 +20,10 @@ const trackUrlInput = document.getElementById('trackUrl');
 
 // State Variables
 let brushColor = '#ff4757';
-let accessoryImageBuffer = null;
+let accessoryDataUrl = null;
 let drawingModeActive = false;
+let lastX = 0;
+let lastY = 0;
 
 let audioContext = null;
 let audioAnalyser = null;
@@ -29,11 +35,11 @@ let starsField = [];
 let currentlySingingGhost = null;
 let synthInterval = null;
 
-// Enforce Crisp Pixel Rendering Across Browsers
+// Keep main game canvas retro pixelated, but keep drawing canvas smooth
 sCtx.imageSmoothingEnabled = false;
-dCtx.imageSmoothingEnabled = false;
+dCtx.imageSmoothingEnabled = true;
 
-// Initialize Background Parallax Starfield
+// Starfield setup
 for (let i = 0; i < 35; i++) {
     starsField.push({
         x: Math.random() * canvas.width,
@@ -43,15 +49,15 @@ for (let i = 0; i < 35; i++) {
     });
 }
 
-// Modal Control - FIXED: Clears to full transparency instead of filling dark purple
+// Modal Control
 function toggleStudio(open) {
     studioModal.style.display = open ? 'flex' : 'none';
     if (open) {
-        dCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height); // Keeps background transparent!
+        dCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
     }
 }
 
-// Color Palette Swatches Selection
+// Color Palette
 document.querySelectorAll('.color-swatch').forEach(swatch => {
     swatch.addEventListener('click', (e) => {
         brushColor = e.target.getAttribute('data-color');
@@ -60,44 +66,66 @@ document.querySelectorAll('.color-swatch').forEach(swatch => {
     });
 });
 
-// Calculate Canvas Matrix Coordinates
-function getMouseGridCoords(e) {
+// Smooth Freehand Vector Drawing Engine
+function getMouseCoords(e) {
     const rect = drawCanvas.getBoundingClientRect();
+    const scaleX = drawCanvas.width / rect.width;
+    const scaleY = drawCanvas.height / rect.height;
     return {
-        x: Math.floor((e.clientX - rect.left) / (rect.width / drawCanvas.width)),
-        y: Math.floor((e.clientY - rect.top) / (rect.height / drawCanvas.height))
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
     };
 }
 
-function drawPixel(e) {
-    const point = getMouseGridCoords(e);
-    dCtx.fillStyle = brushColor;
-    dCtx.fillRect(point.x, point.y, 1, 1);
-}
+drawCanvas.addEventListener('mousedown', (e) => {
+    drawingModeActive = true;
+    const coords = getMouseCoords(e);
+    lastX = coords.x;
+    lastY = coords.y;
+});
 
-// Studio Drawing Event Listeners
-drawCanvas.addEventListener('mousedown', (e) => { drawingModeActive = true; drawPixel(e); });
-drawCanvas.addEventListener('mousemove', (e) => { if (drawingModeActive) drawPixel(e); });
+drawCanvas.addEventListener('mousemove', (e) => {
+    if (!drawingModeActive) return;
+    const coords = getMouseCoords(e);
+
+    dCtx.beginPath();
+    dCtx.moveTo(lastX, lastY);
+    dCtx.lineTo(coords.x, coords.y);
+    dCtx.strokeStyle = brushColor;
+    dCtx.lineWidth = 4;
+    dCtx.lineCap = 'round';
+    dCtx.lineJoin = 'round';
+    dCtx.stroke();
+
+    lastX = coords.x;
+    lastY = coords.y;
+});
+
 window.addEventListener('mouseup', () => drawingModeActive = false);
 
 openStudioBtn.addEventListener('click', () => toggleStudio(true));
 cancelStudioBtn.addEventListener('click', () => toggleStudio(false));
 
 bakeAssetBtn.addEventListener('click', () => {
-    accessoryImageBuffer = new Image();
-    accessoryImageBuffer.src = drawCanvas.toDataURL(); // Now exports a transparent PNG!
+    accessoryDataUrl = drawCanvas.toDataURL();
     toggleStudio(false);
 });
 
 // Pixel Ghost Entity Class
 class GameGhost {
-    constructor(name, streamUrl, accessoryImg) {
+    constructor(id, name, streamUrl, accessoryImgSrc, x, y) {
+        this.id = id;
         this.name = name.toUpperCase() || "BLOOKY";
         this.url = streamUrl;
-        this.accessory = accessoryImg;
         
-        this.x = Math.random() * (canvas.width - 120) + 40;
-        this.y = Math.random() * (canvas.height - 180) + 40;
+        this.accessory = null;
+        if (accessoryImgSrc) {
+            this.accessory = new Image();
+            this.accessory.src = accessoryImgSrc;
+        }
+        
+        this.x = x !== undefined ? x : Math.random() * (canvas.width - 120) + 40;
+        this.y = y !== undefined ? y : Math.random() * (canvas.height - 180) + 40;
         this.vx = (Math.random() - 0.5) * 1.4;
         this.vy = (Math.random() - 0.5) * 1.4;
         this.width = 44;
@@ -120,7 +148,7 @@ class GameGhost {
         const py = Math.floor(this.y + this.hoverY);
         sCtx.save();
 
-        // 1. Reactive Shockwave Ring
+        // 1. Reactive Sound Ring
         if (currentlySingingGhost === this && soundWavesArray.length > 0) {
             let spectrumSum = 0;
             for (let i = 0; i < 8; i++) spectrumSum += soundWavesArray[i];
@@ -130,7 +158,7 @@ class GameGhost {
             sCtx.strokeRect(px - intensityDelta / 2, py - intensityDelta / 2, this.width + intensityDelta, this.height + intensityDelta);
         }
 
-        // 2. Ghost Body Outline & Fill
+        // 2. Ghost Body
         sCtx.fillStyle = '#100b26';
         sCtx.fillRect(px + 8, py, 28, 52);
         sCtx.fillRect(px, py + 8, 44, 40);
@@ -153,7 +181,7 @@ class GameGhost {
             sCtx.fillRect(px + 38, py + 44, 4, 4);
         }
 
-        // Face & Eyes Expression
+        // Face & Eyes
         sCtx.fillStyle = '#100b26';
         const eyeSync = (currentlySingingGhost === this) ? -3 : 0;
         sCtx.fillRect(px + 14, py + 16 + eyeSync, 6, 10);
@@ -165,7 +193,7 @@ class GameGhost {
             sCtx.fillRect(px + 21, py + 31, 2, 3);
         }
 
-        // 3. Singing Headphones & Sparkle Animation
+        // 3. Singing Headphones
         if (currentlySingingGhost === this) {
             sCtx.fillStyle = '#100b26';
             sCtx.fillRect(px + 8, py - 2, 28, 4);
@@ -183,12 +211,14 @@ class GameGhost {
             }
         }
 
-        // 4. Render Baked Accessory Asset (Centered over head)
-        if (this.accessory) {
-            sCtx.drawImage(this.accessory, px + 6, py - 18, 32, 32);
+        // 4. Render Smooth Custom Accessory Asset
+        if (this.accessory && this.accessory.complete) {
+            sCtx.imageSmoothingEnabled = true;
+            sCtx.drawImage(this.accessory, px + 2, py - 24, 40, 40);
+            sCtx.imageSmoothingEnabled = false;
         }
 
-        // 5. Name Label Tag
+        // 5. Name Tag
         sCtx.fillStyle = (currentlySingingGhost === this) ? '#ff007f' : '#5cfade';
         sCtx.font = '9px "Courier New"';
         sCtx.textAlign = 'center';
@@ -201,26 +231,58 @@ class GameGhost {
     }
 }
 
-// Ghost Summoning Logic
-summonBtn.addEventListener('click', () => {
-    let savedAsset = null;
-    if (accessoryImageBuffer) {
-        savedAsset = new Image();
-        savedAsset.src = accessoryImageBuffer.src;
+// FETCH EXISTING GHOSTS FROM SUPABASE
+async function fetchGhosts() {
+    const { data, error } = await supabase.from('ghosts').select('*');
+    if (error) {
+        console.error('Error fetching ghosts:', error);
+        return;
     }
     
-    const ghostItem = new GameGhost(ghostNameInput.value.trim(), trackUrlInput.value.trim(), savedAsset);
-    activeGhosts.push(ghostItem);
+    activeGhosts = [];
+    if (data && data.length > 0) {
+        data.forEach(g => {
+            activeGhosts.push(new GameGhost(g.id, g.name, g.url, g.accessory, g.x, g.y));
+        });
+    } else {
+        // Fallback initial ghost if database is completely empty
+        activeGhosts.push(new GameGhost("default", "BLOOKY", "", "", 200, 100));
+    }
+}
+
+// SUBSCRIBE TO REALTIME CHANGES (Syncs instantly across all connected users)
+function subscribeToGhosts() {
+    supabase
+        .channel('public:ghosts')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ghosts' }, (payload) => {
+            const g = payload.new;
+            // Add new ghost live without needing to reload
+            activeGhosts.push(new GameGhost(g.id, g.name, g.url, g.accessory, g.x, g.y));
+        })
+        .subscribe();
+}
+
+// SAVE NEW GHOST TO SUPABASE
+summonBtn.addEventListener('click', async () => {
+    const newGhost = {
+        name: ghostNameInput.value.trim() || "BLOOKY",
+        url: trackUrlInput.value.trim(),
+        accessory: accessoryDataUrl || "",
+        x: Math.random() * (canvas.width - 120) + 40,
+        y: Math.random() * (canvas.height - 180) + 40
+    };
+
+    const { error } = await supabase.from('ghosts').insert([newGhost]);
+    if (error) {
+        console.error('Error saving ghost:', error);
+    }
 
     ghostNameInput.value = "";
     trackUrlInput.value = "";
-    accessoryImageBuffer = null;
+    accessoryDataUrl = null;
 });
 
-// Seed Initial Default Ghost
-activeGhosts.push(new GameGhost("BLOOKY", "", null));
-
-// Web Audio API Setup
+// Audio Engine Setup
 function initializeSystemAudioEngine() {
     if (audioContext) return;
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -232,7 +294,6 @@ function initializeSystemAudioEngine() {
     soundWavesArray = new Uint8Array(audioAnalyser.frequencyBinCount);
 }
 
-// Stage Click Handlers
 canvas.addEventListener('click', (e) => {
     const rect = canvas.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
@@ -247,7 +308,6 @@ canvas.addEventListener('click', (e) => {
     });
 });
 
-// Audio Playback & Synthesizer Engine
 function toggleGhostMusicTrack(ghost) {
     if (synthInterval) {
         clearInterval(synthInterval);
@@ -262,8 +322,7 @@ function toggleGhostMusicTrack(ghost) {
 
     currentlySingingGhost = ghost;
 
-    if (ghost.url === "") {
-        // Built-in Procedural 8-Bit Chiptune Synthesizer
+    if (!ghost.url) {
         const frequencies = [261.63, 293.66, 329.63, 392.00, 440.00];
         synthInterval = setInterval(() => {
             if (currentlySingingGhost !== ghost) return;
@@ -288,7 +347,6 @@ function toggleGhostMusicTrack(ghost) {
             }
         }, 250);
     } else {
-        // Direct Audio Stream Link Playback
         audio.src = ghost.url;
         audio.play().catch(err => {
             console.log("Audio link connection failed or blocked by CORS: ", err);
@@ -299,13 +357,11 @@ function toggleGhostMusicTrack(ghost) {
 
 audio.addEventListener('ended', () => { currentlySingingGhost = null; });
 
-// Central Render Loop
+// Render Loop
 function gameMainLoop() {
-    // Clear Stage
     sCtx.fillStyle = '#0c102b';
     sCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Audio Frequency Polling
     if (audioAnalyser && currentlySingingGhost && audio.src && !audio.paused) {
         audioAnalyser.getByteFrequencyData(soundWavesArray);
     } else if (!currentlySingingGhost) {
@@ -314,7 +370,7 @@ function gameMainLoop() {
         }
     }
 
-    // Draw Visualizer Equalizer Wall Panels
+    // Visualizer Panels
     const totalBars = 16;
     const barThickness = canvas.width / totalBars;
     for (let i = 0; i < totalBars; i++) {
@@ -324,7 +380,7 @@ function gameMainLoop() {
         sCtx.fillRect(i * barThickness, canvas.height - panelHeight - 40, barThickness - 4, panelHeight);
     }
 
-    // Update and Render Scrolling Stars
+    // Stars
     starsField.forEach(star => {
         let currentSpeedFactor = 1;
         if (currentlySingingGhost && soundWavesArray.length > 0) {
@@ -336,13 +392,13 @@ function gameMainLoop() {
         sCtx.fillRect(Math.floor(star.x), Math.floor(star.y), star.size, star.size);
     });
 
-    // Draw Pixel Moon
+    // Moon
     sCtx.fillStyle = 'rgba(0, 221, 255, 0.15)';
     sCtx.fillRect(44, 44, 48, 48);
     sCtx.fillStyle = '#5cfade';
     sCtx.fillRect(48, 48, 40, 40);
 
-    // Draw City Skyline Base Blocks
+    // City Skyline
     sCtx.fillStyle = '#080517';
     sCtx.fillRect(0, canvas.height - 35, canvas.width, 35);
     sCtx.fillRect(0, canvas.height - 50, 40, 15);
@@ -361,5 +417,7 @@ function gameMainLoop() {
     requestAnimationFrame(gameMainLoop);
 }
 
-// Start Main Render Loop
+// Initialize Supabase Data & Start Engine Loop
+fetchGhosts();
+subscribeToGhosts();
 gameMainLoop();

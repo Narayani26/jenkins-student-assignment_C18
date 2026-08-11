@@ -5,11 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pixel Ghost Radio 🌌</title>
     <link rel="stylesheet" href="style.css">
+    
+    <!-- Supabase JS Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
     <h1>Ghost Pixel Station 🌌</h1>
-    <p class="subtitle">[ SYSTEM OPERATIONAL ]</p>
+    <p class="subtitle">[ SUPABASE MULTIPLAYER OPERATIONAL ]</p>
 
     <!-- Arcade Cabinet Container -->
     <div class="arcade-cabinet">
@@ -20,7 +23,7 @@
         <div id="deck-controls">
             <div class="input-row">
                 <input type="text" id="ghostName" placeholder="NAME YOUR GHOST..." maxlength="10">
-                <button class="btn" id="openStudioBtn">🌸 Draw Accessory</button>
+                <button class="btn" id="openStudioBtn">🌸 Draw Smooth Accessory</button>
             </div>
             <div class="input-row">
                 <input type="text" id="trackUrl" placeholder="PASTE MP3 LINK (OR LEAVE BLANK)...">
@@ -29,13 +32,13 @@
         </div>
     </div>
 
-    <!-- Pixel Art Drawing Modal -->
+    <!-- Smooth Vector Drawing Modal -->
     <div id="studio-modal">
         <div class="studio-box">
-            <h3>8-BIT ACCESSORY EDITOR</h3>
-            <p>PAINT YOUR FLOWERS OR HATS HERE</p>
+            <h3>SMOOTH ACCESSORY EDITOR</h3>
+            <p>DRAW HIGH-RES FLOWERS OR HATS HERE</p>
             
-            <canvas id="drawCanvas" width="16" height="16"></canvas>
+            <canvas id="drawCanvas" width="128" height="128"></canvas>
             
             <div class="palette">
                 <div class="color-swatch active" data-color="#ff4757" style="background: #ff4757;"></div>
@@ -46,14 +49,13 @@
             </div>
             <div class="input-row">
                 <button class="btn btn-cancel" id="cancelStudioBtn">Cancel</button>
-                <button class="btn btn-bake" id="bakeAssetBtn">Bake Asset 💾</button>
+                <button class="btn btn-bake" id="bakeAssetBtn">Save Asset 💾</button>
             </div>
         </div>
     </div>
 
-    <!-- Hidden HTML5 Audio Element -->
     <audio id="streamPlayer" preload="auto" crossorigin="anonymous"></audio>
-
+    <script src="config.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
