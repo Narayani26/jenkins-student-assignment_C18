@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pixel Ghost Radio 🌌</title>
+    <title>Pixel Ghost Radio</title>
     <link rel="stylesheet" href="style.css">
     
-    <!-- Supabase JS Client Library -->
+    <!-- Supabase Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-    <h1>Ghost Pixel Station 🌌</h1>
+    <h1>Ghost Pixel Station</h1>
     <p class="subtitle">[ SUPABASE MULTIPLAYER OPERATIONAL ]</p>
 
     <!-- Arcade Cabinet Container -->
@@ -23,11 +23,11 @@
         <div id="deck-controls">
             <div class="input-row">
                 <input type="text" id="ghostName" placeholder="NAME YOUR GHOST..." maxlength="10">
-                <button class="btn" id="openStudioBtn">🌸 Draw Smooth Accessory</button>
+                <button class="btn" id="openStudioBtn">Draw Smooth Accessory</button>
             </div>
             <div class="input-row">
                 <input type="text" id="trackUrl" placeholder="PASTE MP3 LINK (OR LEAVE BLANK)...">
-                <button class="btn btn-summon" id="summonBtn">Summon 👻</button>
+                <button class="btn btn-summon" id="summonBtn">Summon Ghost</button>
             </div>
         </div>
     </div>
@@ -49,12 +49,13 @@
             </div>
             <div class="input-row">
                 <button class="btn btn-cancel" id="cancelStudioBtn">Cancel</button>
-                <button class="btn btn-bake" id="bakeAssetBtn">Save Asset 💾</button>
+                <button class="btn btn-bake" id="bakeAssetBtn">Save Asset</button>
             </div>
         </div>
     </div>
 
     <audio id="streamPlayer" preload="auto" crossorigin="anonymous"></audio>
+
     <script src="config.js"></script>
     <script src="script.js"></script>
 </body>

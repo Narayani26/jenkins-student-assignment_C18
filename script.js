@@ -1,8 +1,11 @@
-// --- SUPABASE INITIALIZATION ---
+// Check CONFIG before initializing
+if (typeof CONFIG === 'undefined') {
+    console.error("CONFIG object not found! Check your config.js script tag.");
+}
 
-const supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEYSUPABASE_ANON_KEY);
+const supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
 
-// DOM Element References
+// DOM Elements
 const canvas = document.getElementById('game-screen');
 const sCtx = canvas.getContext('2d');
 const audio = document.getElementById('streamPlayer');
@@ -35,11 +38,11 @@ let starsField = [];
 let currentlySingingGhost = null;
 let synthInterval = null;
 
-// Keep main game canvas retro pixelated, but keep drawing canvas smooth
+// Pixel / Vector Smoothing Settings
 sCtx.imageSmoothingEnabled = false;
 dCtx.imageSmoothingEnabled = true;
 
-// Starfield setup
+// Build Stars
 for (let i = 0; i < 35; i++) {
     starsField.push({
         x: Math.random() * canvas.width,
@@ -49,7 +52,7 @@ for (let i = 0; i < 35; i++) {
     });
 }
 
-// Modal Control
+// Modal Toggle
 function toggleStudio(open) {
     studioModal.style.display = open ? 'flex' : 'none';
     if (open) {
@@ -57,7 +60,7 @@ function toggleStudio(open) {
     }
 }
 
-// Color Palette
+// Color Palette Swatches
 document.querySelectorAll('.color-swatch').forEach(swatch => {
     swatch.addEventListener('click', (e) => {
         brushColor = e.target.getAttribute('data-color');
@@ -66,7 +69,7 @@ document.querySelectorAll('.color-swatch').forEach(swatch => {
     });
 });
 
-// Smooth Freehand Vector Drawing Engine
+// Freehand Vector Drawing Module
 function getMouseCoords(e) {
     const rect = drawCanvas.getBoundingClientRect();
     const scaleX = drawCanvas.width / rect.width;
@@ -111,11 +114,11 @@ bakeAssetBtn.addEventListener('click', () => {
     toggleStudio(false);
 });
 
-// Pixel Ghost Entity Class
+// Character Blueprint
 class GameGhost {
     constructor(id, name, streamUrl, accessoryImgSrc, x, y) {
         this.id = id;
-        this.name = name.toUpperCase() || "BLOOKY";
+        this.name = name ? name.toUpperCase() : "BLOOKY";
         this.url = streamUrl;
         
         this.accessory = null;
@@ -148,7 +151,7 @@ class GameGhost {
         const py = Math.floor(this.y + this.hoverY);
         sCtx.save();
 
-        // 1. Reactive Sound Ring
+        // Reactive Pulse Ring
         if (currentlySingingGhost === this && soundWavesArray.length > 0) {
             let spectrumSum = 0;
             for (let i = 0; i < 8; i++) spectrumSum += soundWavesArray[i];
@@ -158,7 +161,7 @@ class GameGhost {
             sCtx.strokeRect(px - intensityDelta / 2, py - intensityDelta / 2, this.width + intensityDelta, this.height + intensityDelta);
         }
 
-        // 2. Ghost Body
+        // Ghost Body Blocks
         sCtx.fillStyle = '#100b26';
         sCtx.fillRect(px + 8, py, 28, 52);
         sCtx.fillRect(px, py + 8, 44, 40);
@@ -168,7 +171,7 @@ class GameGhost {
         sCtx.fillRect(px + 4, py + 6, 36, 42);
         sCtx.fillRect(px + 2, py + 10, 40, 38);
 
-        // Animated Tail Folds
+        // Tail Ripple
         sCtx.fillStyle = '#9aa1c2';
         const waveState = Math.floor(this.animationTick * 2) % 2 === 0;
         if (waveState) {
@@ -181,7 +184,7 @@ class GameGhost {
             sCtx.fillRect(px + 38, py + 44, 4, 4);
         }
 
-        // Face & Eyes
+        // Face / Eyes
         sCtx.fillStyle = '#100b26';
         const eyeSync = (currentlySingingGhost === this) ? -3 : 0;
         sCtx.fillRect(px + 14, py + 16 + eyeSync, 6, 10);
@@ -193,7 +196,7 @@ class GameGhost {
             sCtx.fillRect(px + 21, py + 31, 2, 3);
         }
 
-        // 3. Singing Headphones
+        // Headphones & Sparkles
         if (currentlySingingGhost === this) {
             sCtx.fillStyle = '#100b26';
             sCtx.fillRect(px + 8, py - 2, 28, 4);
@@ -211,14 +214,14 @@ class GameGhost {
             }
         }
 
-        // 4. Render Smooth Custom Accessory Asset
+        // Render Accessory
         if (this.accessory && this.accessory.complete) {
             sCtx.imageSmoothingEnabled = true;
             sCtx.drawImage(this.accessory, px + 2, py - 24, 40, 40);
             sCtx.imageSmoothingEnabled = false;
         }
 
-        // 5. Name Tag
+        // Name Tag
         sCtx.fillStyle = (currentlySingingGhost === this) ? '#ff007f' : '#5cfade';
         sCtx.font = '9px "Courier New"';
         sCtx.textAlign = 'center';
@@ -231,38 +234,40 @@ class GameGhost {
     }
 }
 
-// FETCH EXISTING GHOSTS FROM SUPABASE
+// Initial Local Default Ghost (Guarantees canvas is never blank!)
+activeGhosts.push(new GameGhost("default", "BLOOKY", "", "", 200, 100));
+
+// SUPABASE INTEGRATION
 async function fetchGhosts() {
-    const { data, error } = await supabase.from('ghosts').select('*');
-    if (error) {
-        console.error('Error fetching ghosts:', error);
-        return;
-    }
-    
-    activeGhosts = [];
-    if (data && data.length > 0) {
-        data.forEach(g => {
-            activeGhosts.push(new GameGhost(g.id, g.name, g.url, g.accessory, g.x, g.y));
-        });
-    } else {
-        // Fallback initial ghost if database is completely empty
-        activeGhosts.push(new GameGhost("default", "BLOOKY", "", "", 200, 100));
+    try {
+        const { data, error } = await supabase.from('ghosts').select('*');
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+            activeGhosts = [];
+            data.forEach(g => {
+                activeGhosts.push(new GameGhost(g.id, g.name, g.url, g.accessory, g.x, g.y));
+            });
+        }
+    } catch (err) {
+        console.warn('Could not fetch ghosts from Supabase. Make sure table RLS allows public select access:', err);
     }
 }
 
-// SUBSCRIBE TO REALTIME CHANGES (Syncs instantly across all connected users)
 function subscribeToGhosts() {
-    supabase
-        .channel('public:ghosts')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ghosts' }, (payload) => {
-            const g = payload.new;
-            // Add new ghost live without needing to reload
-            activeGhosts.push(new GameGhost(g.id, g.name, g.url, g.accessory, g.x, g.y));
-        })
-        .subscribe();
+    try {
+        supabase
+            .channel('public:ghosts')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ghosts' }, (payload) => {
+                const g = payload.new;
+                activeGhosts.push(new GameGhost(g.id, g.name, g.url, g.accessory, g.x, g.y));
+            })
+            .subscribe();
+    } catch (err) {
+        console.warn('Realtime subscription error:', err);
+    }
 }
 
-// SAVE NEW GHOST TO SUPABASE
 summonBtn.addEventListener('click', async () => {
     const newGhost = {
         name: ghostNameInput.value.trim() || "BLOOKY",
@@ -272,9 +277,13 @@ summonBtn.addEventListener('click', async () => {
         y: Math.random() * (canvas.height - 180) + 40
     };
 
-    const { error } = await supabase.from('ghosts').insert([newGhost]);
-    if (error) {
-        console.error('Error saving ghost:', error);
+    // Add locally immediately for zero lag
+    activeGhosts.push(new GameGhost(Date.now().toString(), newGhost.name, newGhost.url, newGhost.accessory, newGhost.x, newGhost.y));
+
+    try {
+        await supabase.from('ghosts').insert([newGhost]);
+    } catch (err) {
+        console.error('Error saving to Supabase database:', err);
     }
 
     ghostNameInput.value = "";
@@ -282,7 +291,7 @@ summonBtn.addEventListener('click', async () => {
     accessoryDataUrl = null;
 });
 
-// Audio Engine Setup
+// Audio System Setup
 function initializeSystemAudioEngine() {
     if (audioContext) return;
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -357,11 +366,13 @@ function toggleGhostMusicTrack(ghost) {
 
 audio.addEventListener('ended', () => { currentlySingingGhost = null; });
 
-// Render Loop
+// Main Animation Loop
 function gameMainLoop() {
+    // Clear Stage
     sCtx.fillStyle = '#0c102b';
     sCtx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // Audio frequency processing
     if (audioAnalyser && currentlySingingGhost && audio.src && !audio.paused) {
         audioAnalyser.getByteFrequencyData(soundWavesArray);
     } else if (!currentlySingingGhost) {
@@ -370,7 +381,7 @@ function gameMainLoop() {
         }
     }
 
-    // Visualizer Panels
+    // Equalizer Bars
     const totalBars = 16;
     const barThickness = canvas.width / totalBars;
     for (let i = 0; i < totalBars; i++) {
@@ -417,7 +428,7 @@ function gameMainLoop() {
     requestAnimationFrame(gameMainLoop);
 }
 
-// Initialize Supabase Data & Start Engine Loop
+// Start Engine & Connect DB
 fetchGhosts();
 subscribeToGhosts();
 gameMainLoop();
