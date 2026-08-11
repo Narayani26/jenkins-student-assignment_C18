@@ -3,35 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Cute Corner ✨</title>
+    <title>Pixel Ghost Radio 🌌</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <header>
-        <h1>Welcome to My Cute Corner! ✨</h1>
-        <p>A cozy place on the internet just for you.</p>
-    </header>
+    <h1>Ghost Pixel Station 🌌</h1>
+    <p class="subtitle">[ SYSTEM OPERATIONAL ]</p>
 
-    <main>
-        <!-- Dynamic Quote Card -->
-        <section class="card">
-            <h2>Today's Reminder 🧸</h2>
-            <p id="quote">You are doing wonderful today! Keep shining.</p>
-            <button id="quote-btn">Next Sparkle ✨</button>
-        </section>
+    <!-- Arcade Cabinet Container -->
+    <div class="arcade-cabinet">
+        <!-- Main Canvas Screen -->
+        <canvas id="game-screen" width="512" height="320"></canvas>
 
-        <!-- Interactive Mood Picker -->
-        <section class="card">
-            <h2>How are you feeling? 💕</h2>
-            <div class="mood-container">
-                <button onclick="pickMood('🌸 Happy')">🌸 Happy</button>
-                <button onclick="pickMood('☁️ Sleepy')">☁️ Sleepy</button>
-                <button onclick="pickMood('🍪 Hungry')">🍪 Hungry</button>
+        <!-- Command Control Panel -->
+        <div id="deck-controls">
+            <div class="input-row">
+                <input type="text" id="ghostName" placeholder="NAME YOUR GHOST..." maxlength="10">
+                <button class="btn" id="openStudioBtn">🌸 Draw Accessory</button>
             </div>
-            <p id="mood-reply">Click a button to share your mood!</p>
-        </section>
-    </main>
+            <div class="input-row">
+                <input type="text" id="trackUrl" placeholder="PASTE MP3 LINK (OR LEAVE BLANK)...">
+                <button class="btn btn-summon" id="summonBtn">Summon 👻</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pixel Art Drawing Modal -->
+    <div id="studio-modal">
+        <div class="studio-box">
+            <h3>8-BIT ACCESSORY EDITOR</h3>
+            <p>PAINT YOUR FLOWERS OR HATS HERE</p>
+            
+            <canvas id="drawCanvas" width="16" height="16"></canvas>
+            
+            <div class="palette">
+                <div class="color-swatch active" data-color="#ff4757" style="background: #ff4757;"></div>
+                <div class="color-swatch" data-color="#ffa502" style="background: #ffa502;"></div>
+                <div class="color-swatch" data-color="#2ed573" style="background: #2ed573;"></div>
+                <div class="color-swatch" data-color="#00d2d3" style="background: #00d2d3;"></div>
+                <div class="color-swatch" data-color="#ffffff" style="background: #ffffff;"></div>
+            </div>
+            <div class="input-row">
+                <button class="btn btn-cancel" id="cancelStudioBtn">Cancel</button>
+                <button class="btn btn-bake" id="bakeAssetBtn">Bake Asset 💾</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden HTML5 Audio Element -->
+    <audio id="streamPlayer" preload="auto" crossorigin="anonymous"></audio>
 
     <script src="script.js"></script>
 </body>
