@@ -173,3 +173,29 @@ input[type="text"]::placeholder {
 audio {
     display: none;
 }
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 600px) {
+    #floating-deck {
+        width: 95%;
+        padding: 10px;
+        gap: 8px;
+        bottom: 10px;
+    }
+
+    .control-group {
+        flex-direction: column;
+        gap: 6px;
+        width: 100%;
+    }
+
+    input[type="text"] {
+        width: 100%;
+    }
+
+    .btn, .file-label {
+        width: 100%;
+        text-align: center;
+        padding: 10px;
+    }
+}

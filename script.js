@@ -41,12 +41,19 @@ let soundWavesArray = new Uint8Array(16);
 let activeGhosts = [];
 let starsField = [];
 let currentlySingingGhost = null;
+let synthInterval = null;
+let UI_OFFSET = 180; // Buffer height to keep ghosts above bottom deck
 
-// Dynamic Canvas Resize
+// Dynamic Canvas Resize & UI Buffer Calculation
 function resizeCanvasToWindow() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     sCtx.imageSmoothingEnabled = false;
+
+    const deck = document.getElementById('floating-deck');
+    if (deck) {
+        UI_OFFSET = deck.offsetHeight + 30;
+    }
 }
 window.addEventListener('resize', resizeCanvasToWindow);
 resizeCanvasToWindow();
@@ -63,7 +70,7 @@ for (let i = 0; i < 60; i++) {
     });
 }
 
-// --- MUSIC VALIDATION ENGINES ---
+// MUSIC VALIDATION ENGINES
 function isValidMusicUrl(url) {
     if (!url) return false;
     const cleanUrl = url.trim().toLowerCase();
@@ -218,20 +225,32 @@ class GameGhost {
             this.accessory.src = accessoryImgSrc;
         }
         
-        this.x = x !== undefined ? x : Math.random() * (canvas.width - 100) + 50;
-        this.y = y !== undefined ? y : Math.random() * (canvas.height - 200) + 50;
-        this.vx = (Math.random() - 0.5) * 1.5;
-        this.vy = (Math.random() - 0.5) * 1.5;
         this.width = 44;
         this.height = 52;
+        this.x = x !== undefined ? x : Math.random() * (canvas.width - 100) + 50;
+        this.y = y !== undefined ? y : Math.random() * Math.max(100, canvas.height - this.height - UI_OFFSET - 50) + 30;
+        this.vx = (Math.random() - 0.5) * 1.5;
+        this.vy = (Math.random() - 0.5) * 1.5;
         this.animationTick = Math.random() * 100;
     }
 
     update() {
         this.x += this.vx;
         this.y += this.vy;
-        if (this.x < 10 || this.x > canvas.width - this.width - 10) this.vx *= -1;
-        if (this.y < 10 || this.y > canvas.height - this.height - 120) this.vy *= -1;
+
+        // X Axis Bounds
+        if (this.x < 10 || this.x > canvas.width - this.width - 10) {
+            this.vx *= -1;
+        }
+
+        // Y Axis Bounds (Bouncing off top screen and top of UI Deck)
+        if (this.y < 10) {
+            this.vy *= -1;
+            this.y = 11;
+        } else if (this.y > canvas.height - this.height - UI_OFFSET) {
+            this.vy *= -1;
+            this.y = Math.max(10, canvas.height - this.height - UI_OFFSET - 2);
+        }
         
         this.animationTick += 0.05;
         this.hoverY = Math.sin(this.animationTick) * 6;
@@ -242,7 +261,6 @@ class GameGhost {
         const py = Math.floor(this.y + this.hoverY);
         sCtx.save();
 
-        // Aura Glow when singing
         if (currentlySingingGhost === this && soundWavesArray.length > 0) {
             let spectrumSum = 0;
             for (let i = 0; i < 8; i++) spectrumSum += soundWavesArray[i];
@@ -252,7 +270,6 @@ class GameGhost {
             sCtx.strokeRect(px - intensityDelta / 2, py - intensityDelta / 2, this.width + intensityDelta, this.height + intensityDelta);
         }
 
-        // Ghost Body
         sCtx.fillStyle = '#100b26';
         sCtx.fillRect(px + 8, py, 28, 52);
         sCtx.fillRect(px, py + 8, 44, 40);
@@ -262,7 +279,6 @@ class GameGhost {
         sCtx.fillRect(px + 4, py + 6, 36, 42);
         sCtx.fillRect(px + 2, py + 10, 40, 38);
 
-        // Tail Ripple
         sCtx.fillStyle = '#9aa1c2';
         const waveState = Math.floor(this.animationTick * 2) % 2 === 0;
         if (waveState) {
@@ -275,7 +291,6 @@ class GameGhost {
             sCtx.fillRect(px + 38, py + 44, 4, 4);
         }
 
-        // Eyes / Mouth
         sCtx.fillStyle = '#100b26';
         const eyeSync = (currentlySingingGhost === this) ? -3 : 0;
         sCtx.fillRect(px + 14, py + 16 + eyeSync, 6, 10);
@@ -287,7 +302,6 @@ class GameGhost {
             sCtx.fillRect(px + 21, py + 31, 2, 3);
         }
 
-        // Headphones
         if (currentlySingingGhost === this) {
             sCtx.fillStyle = '#ff007f';
             sCtx.fillRect(px + 8, py - 2, 28, 4);
@@ -305,14 +319,12 @@ class GameGhost {
             }
         }
 
-        // Accessory Render
         if (this.accessory && this.accessory.complete) {
             sCtx.imageSmoothingEnabled = true;
             sCtx.drawImage(this.accessory, px + 2, py - 24, 40, 40);
             sCtx.imageSmoothingEnabled = false;
         }
 
-        // Name Label
         sCtx.fillStyle = (currentlySingingGhost === this) ? '#ff007f' : '#5cfade';
         sCtx.font = '10px "Courier New"';
         sCtx.textAlign = 'center';
@@ -328,7 +340,7 @@ class GameGhost {
 // FETCH EXISTING GHOSTS FROM SUPABASE
 async function fetchGhosts() {
     if (!supabaseClient) {
-        activeGhosts = [new GameGhost("default_1", "BLOOKY", "", "", canvas.width / 2 - 22, canvas.height / 2 - 26)];
+        activeGhosts = [new GameGhost("default_1", "BLOOKY", "", "", canvas.width / 2 - 22, canvas.height / 2 - 100)];
         return;
     }
     
@@ -345,7 +357,7 @@ async function fetchGhosts() {
                 activeGhosts.push(new GameGhost(g.id, g.name, g.url, g.accessory, g.x, g.y));
             });
         } else {
-            activeGhosts = [new GameGhost("default_1", "BLOOKY", "", "", canvas.width / 2 - 22, canvas.height / 2 - 26)];
+            activeGhosts = [new GameGhost("default_1", "BLOOKY", "", "", canvas.width / 2 - 22, canvas.height / 2 - 100)];
         }
     } catch (err) {
         console.warn('Supabase fetch skipped:', err);
@@ -390,7 +402,7 @@ summonBtn.addEventListener('click', async () => {
         url: finalAudioUrl,
         accessory: accessoryDataUrl || "",
         x: Math.random() * (canvas.width - 120) + 40,
-        y: Math.random() * (canvas.height - 200) + 40
+        y: Math.random() * Math.max(80, canvas.height - 100 - UI_OFFSET) + 30
     };
 
     if (supabaseClient) {
@@ -419,7 +431,7 @@ summonBtn.addEventListener('click', async () => {
     customAudioDataUrl = null;
 });
 
-// AUDIO ENGINE INITIALIZATION & PIPELINE BINDING
+// AUDIO ENGINE INITIALIZATION
 function initializeSystemAudioEngine() {
     if (!audioContext) {
         try {
@@ -434,6 +446,41 @@ function initializeSystemAudioEngine() {
             console.warn("AudioContext init warning:", e);
         }
     }
+    
+    if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
+}
+
+// CHIPTUNE SYNTH FOR BLOOKY / DEFAULT GHOSTS
+function startChiptuneSynthesizer(ghost) {
+    if (synthInterval) clearInterval(synthInterval);
+    
+    const frequencies = [261.63, 293.66, 329.63, 392.00, 440.00];
+    synthInterval = setInterval(() => {
+        if (currentlySingingGhost !== ghost) return;
+        
+        if (audioContext) {
+            let osc = audioContext.createOscillator();
+            let gain = audioContext.createGain();
+            
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(frequencies[Math.floor(Math.random() * frequencies.length)], audioContext.currentTime);
+            
+            gain.gain.setValueAtTime(0.15, audioContext.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+            
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            
+            osc.start();
+            osc.stop(audioContext.currentTime + 0.3);
+        }
+
+        for (let i = 0; i < soundWavesArray.length; i++) {
+            soundWavesArray[i] = Math.floor(Math.random() * 150) + 50;
+        }
+    }, 250);
 }
 
 canvas.addEventListener('click', (e) => {
@@ -450,14 +497,16 @@ canvas.addEventListener('click', (e) => {
     });
 });
 
-// TOGGLE GHOST TRACK (PAUSE / RESUME AUDIO CONTEXT ENGINE)
+// TOGGLE GHOST TRACK (PAUSE / RESUME AUDIO)
 function toggleGhostMusicTrack(ghost) {
-    // 1. CLICKING THE SAME GHOST THAT IS ALREADY SINGING -> PAUSE IT
+    if (synthInterval) {
+        clearInterval(synthInterval);
+        synthInterval = null;
+    }
+
+    // 1. CLICK SAME GHOST AGAIN -> PAUSE
     if (currentlySingingGhost === ghost) {
         audio.pause();
-        if (audioContext && audioContext.state === 'running') {
-            audioContext.suspend();
-        }
         currentlySingingGhost = null;
         return;
     }
@@ -465,14 +514,15 @@ function toggleGhostMusicTrack(ghost) {
     const previousGhost = currentlySingingGhost;
     currentlySingingGhost = ghost;
 
+    // 2. DEFAULT BLOOKY CHIPTUNE SYNTH (No URL)
     if (!ghost.url || ghost.url.trim() === "") {
-        currentlySingingGhost = null;
+        startChiptuneSynthesizer(ghost);
         return;
     }
 
     const lowerUrl = ghost.url.toLowerCase();
 
-    // 2. EXTERNAL LINKS (YOUTUBE / SPOTIFY / SOUNDCLOUD)
+    // 3. EXTERNAL PLATFORM LINKS (YouTube / Spotify / SoundCloud)
     if (lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be') || lowerUrl.includes('spotify.com') || lowerUrl.includes('soundcloud.com')) {
         if (!ghost.hasOpenedExternalTab) {
             ghost.hasOpenedExternalTab = true;
@@ -481,30 +531,30 @@ function toggleGhostMusicTrack(ghost) {
         return;
     }
 
-    // 3. DIRECT AUDIO OR UPLOADED FILE -> PLAY / RESUME
-    if (audioContext && audioContext.state === 'suspended') {
-        audioContext.resume();
+    // 4. DIRECT AUDIO / UPLOADED MP3 FILES (RESUME IF PAUSED, LOAD IF NEW)
+    if (previousGhost === ghost && audio.paused && audio.src) {
+        audio.play();
+        return;
     }
 
-    if (previousGhost !== ghost || !audio.src || audio.src === "" || audio.src !== ghost.url) {
-        audio.pause();
-        audio.src = ghost.url;
-        audio.load();
-    }
+    audio.pause();
+    audio.src = ghost.url;
+    audio.load();
 
     const playPromise = audio.play();
     if (playPromise !== undefined) {
         playPromise.catch(err => {
-            console.warn("Audio play blocked or stream error:", err);
-            currentlySingingGhost = null;
+            console.warn("Direct play blocked or stream error. Falling back to synth:", err);
+            startChiptuneSynthesizer(ghost);
         });
     }
 }
 
 audio.addEventListener('ended', () => { 
     currentlySingingGhost = null; 
-    if (audioContext && audioContext.state === 'running') {
-        audioContext.suspend();
+    if (synthInterval) {
+        clearInterval(synthInterval);
+        synthInterval = null;
     }
 });
 
