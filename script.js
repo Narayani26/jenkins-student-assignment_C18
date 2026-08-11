@@ -70,6 +70,23 @@ for (let i = 0; i < 60; i++) {
     });
 }
 
+// SCREEN CAPACITY & SHUFFLE HELPERS
+function getMaxGhostLimit() {
+    const screenWidth = window.innerWidth;
+    if (screenWidth < 600) return 8;       // Mobile: Max 8 ghosts
+    if (screenWidth < 1024) return 16;     // Tablet: Max 16 ghosts
+    return 30;                             // Desktop: Max 30 ghosts
+}
+
+function shuffleArray(array) {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
 // MUSIC VALIDATION ENGINES
 function isValidMusicUrl(url) {
     if (!url) return false;
@@ -378,10 +395,13 @@ class GameGhost {
     }
 }
 
-// FETCH EXISTING GHOSTS FROM SUPABASE
+// FETCH EXISTING GHOSTS FROM SUPABASE WITH CAP LIMIT & BLOOKY PRESERVATION
 async function fetchGhosts() {
+    // Default BLOOKY ghost instance
+    const blookyGhost = new GameGhost("default_1", "BLOOKY", "", "", canvas.width / 2 - 22, canvas.height / 2 - 100);
+
     if (!supabaseClient) {
-        activeGhosts = [new GameGhost("default_1", "BLOOKY", "", "", canvas.width / 2 - 22, canvas.height / 2 - 100)];
+        activeGhosts = [blookyGhost];
         return;
     }
     
@@ -389,19 +409,31 @@ async function fetchGhosts() {
         const { data, error } = await supabaseClient.from('ghosts').select('*');
         if (error) {
             console.warn('Supabase fetch error:', error.message);
+            activeGhosts = [blookyGhost];
             return;
         }
         
         if (data && data.length > 0) {
-            activeGhosts = [];
-            data.forEach(g => {
+            const limit = getMaxGhostLimit();
+            
+            // Exclude blooky if present in DB so we don't duplicate it
+            const remoteGhosts = data.filter(g => g.name !== "BLOOKY" && g.id !== "default_1");
+            
+            let selectedGhostsData = remoteGhosts;
+            if (remoteGhosts.length > limit - 1) {
+                selectedGhostsData = shuffleArray(remoteGhosts).slice(0, limit - 1);
+            }
+
+            activeGhosts = [blookyGhost]; // Always include BLOOKY
+            selectedGhostsData.forEach(g => {
                 activeGhosts.push(new GameGhost(g.id, g.name, g.url, g.accessory, g.x, g.y));
             });
         } else {
-            activeGhosts = [new GameGhost("default_1", "BLOOKY", "", "", canvas.width / 2 - 22, canvas.height / 2 - 100)];
+            activeGhosts = [blookyGhost];
         }
     } catch (err) {
         console.warn('Supabase fetch skipped:', err);
+        activeGhosts = [blookyGhost];
     }
 }
 
@@ -413,7 +445,15 @@ function subscribeToGhosts() {
             .channel('public:ghosts')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ghosts' }, (payload) => {
                 const g = payload.new;
+                const limit = getMaxGhostLimit();
+
                 if (!activeGhosts.some(existing => existing.id === g.id)) {
+                    if (activeGhosts.length >= limit) {
+                        // Keep BLOOKY at index 0, remove second oldest
+                        if (activeGhosts.length > 1) {
+                            activeGhosts.splice(1, 1);
+                        }
+                    }
                     activeGhosts.push(new GameGhost(g.id, g.name, g.url, g.accessory, g.x, g.y));
                 }
             })
@@ -449,23 +489,25 @@ summonBtn.addEventListener('click', async () => {
         y: spawnY
     };
 
+    const maxLimit = getMaxGhostLimit();
+    if (activeGhosts.length >= maxLimit && activeGhosts.length > 1) {
+        activeGhosts.splice(1, 1); // Auto-trim older ghost to fit capacity while keeping BLOOKY
+    }
+
+    const newGhostObj = new GameGhost(Date.now().toString(), newGhostData.name, newGhostData.url, newGhostData.accessory, newGhostData.x, newGhostData.y);
+    activeGhosts.push(newGhostObj);
+
     if (supabaseClient) {
         try {
             const { data, error } = await supabaseClient.from('ghosts').insert([newGhostData]).select();
             if (error) {
                 console.error("Supabase insert error:", error.message);
-                activeGhosts.push(new GameGhost(Date.now().toString(), newGhostData.name, newGhostData.url, newGhostData.accessory, newGhostData.x, newGhostData.y));
             } else if (data && data.length > 0) {
-                const inserted = data[0];
-                if (!activeGhosts.some(existing => existing.id === inserted.id)) {
-                    activeGhosts.push(new GameGhost(inserted.id, inserted.name, inserted.url, inserted.accessory, inserted.x, inserted.y));
-                }
+                newGhostObj.id = data[0].id;
             }
         } catch (err) {
             console.error('Supabase write exception:', err);
         }
-    } else {
-        activeGhosts.push(new GameGhost(Date.now().toString(), newGhostData.name, newGhostData.url, newGhostData.accessory, newGhostData.x, newGhostData.y));
     }
 
     ghostNameInput.value = "";
