@@ -42,7 +42,7 @@ let activeGhosts = [];
 let starsField = [];
 let currentlySingingGhost = null;
 let synthInterval = null;
-let UI_OFFSET = 180; // Buffer height to keep ghosts above bottom deck
+let UI_OFFSET = 120; // Default buffer height for floating deck
 
 // Dynamic Canvas Resize & UI Buffer Calculation
 function resizeCanvasToWindow() {
@@ -52,7 +52,7 @@ function resizeCanvasToWindow() {
 
     const deck = document.getElementById('floating-deck');
     if (deck) {
-        UI_OFFSET = deck.offsetHeight + 30;
+        UI_OFFSET = deck.offsetHeight + 20;
     }
 }
 window.addEventListener('resize', resizeCanvasToWindow);
@@ -171,24 +171,35 @@ document.querySelectorAll('.color-swatch').forEach(swatch => {
     });
 });
 
-function getMouseCoords(e) {
+// Helper for Mouse and Mobile Touch Drawing Coordinates
+function getCanvasCoords(e) {
     const rect = drawCanvas.getBoundingClientRect();
+    let clientX = e.clientX;
+    let clientY = e.clientY;
+
+    if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+    }
+
     return {
-        x: (e.clientX - rect.left) * (drawCanvas.width / rect.width),
-        y: (e.clientY - rect.top) * (drawCanvas.height / rect.height)
+        x: (clientX - rect.left) * (drawCanvas.width / rect.width),
+        y: (clientY - rect.top) * (drawCanvas.height / rect.height)
     };
 }
 
-drawCanvas.addEventListener('mousedown', (e) => {
+function startDrawing(e) {
     drawingModeActive = true;
-    const coords = getMouseCoords(e);
+    const coords = getCanvasCoords(e);
     lastX = coords.x;
     lastY = coords.y;
-});
+}
 
-drawCanvas.addEventListener('mousemove', (e) => {
+function drawLine(e) {
     if (!drawingModeActive) return;
-    const coords = getMouseCoords(e);
+    if (e.cancelable) e.preventDefault(); // Stop mobile scroll while drawing
+
+    const coords = getCanvasCoords(e);
     dCtx.beginPath();
     dCtx.moveTo(lastX, lastY);
     dCtx.lineTo(coords.x, coords.y);
@@ -200,9 +211,28 @@ drawCanvas.addEventListener('mousemove', (e) => {
     dCtx.stroke();
     lastX = coords.x;
     lastY = coords.y;
-});
+}
 
-window.addEventListener('mouseup', () => drawingModeActive = false);
+function stopDrawing() {
+    drawingModeActive = false;
+}
+
+// Mouse Event Listeners
+drawCanvas.addEventListener('mousedown', startDrawing);
+drawCanvas.addEventListener('mousemove', drawLine);
+window.addEventListener('mouseup', stopDrawing);
+
+// Mobile Touch Event Listeners
+drawCanvas.addEventListener('touchstart', (e) => {
+    if (e.cancelable) e.preventDefault();
+    startDrawing(e);
+}, { passive: false });
+
+drawCanvas.addEventListener('touchmove', (e) => {
+    drawLine(e);
+}, { passive: false });
+
+window.addEventListener('touchend', stopDrawing);
 
 openStudioBtn.addEventListener('click', () => toggleStudio(true));
 cancelStudioBtn.addEventListener('click', () => toggleStudio(false));
@@ -227,8 +257,14 @@ class GameGhost {
         
         this.width = 44;
         this.height = 52;
-        this.x = x !== undefined ? x : Math.random() * (canvas.width - 100) + 50;
-        this.y = y !== undefined ? y : Math.random() * Math.max(100, canvas.height - this.height - UI_OFFSET - 50) + 30;
+
+        // Auto-clamp coordinates into current screen viewport
+        const maxX = Math.max(20, canvas.width - this.width - 20);
+        const maxY = Math.max(20, canvas.height - this.height - UI_OFFSET - 20);
+
+        this.x = (x !== undefined && x < maxX) ? x : Math.random() * maxX + 10;
+        this.y = (y !== undefined && y < maxY) ? y : Math.random() * maxY + 10;
+        
         this.vx = (Math.random() - 0.5) * 1.5;
         this.vy = (Math.random() - 0.5) * 1.5;
         this.animationTick = Math.random() * 100;
@@ -238,18 +274,23 @@ class GameGhost {
         this.x += this.vx;
         this.y += this.vy;
 
-        // X Axis Bounds
-        if (this.x < 10 || this.x > canvas.width - this.width - 10) {
-            this.vx *= -1;
+        // X-Axis Viewport Bounds
+        if (this.x < 10) {
+            this.vx = Math.abs(this.vx);
+            this.x = 11;
+        } else if (this.x > canvas.width - this.width - 10) {
+            this.vx = -Math.abs(this.vx);
+            this.x = canvas.width - this.width - 11;
         }
 
-        // Y Axis Bounds (Bouncing off top screen and top of UI Deck)
+        // Y-Axis Viewport Bounds (Bounces off top screen and UI deck floor)
+        const maxAllowedY = canvas.height - this.height - UI_OFFSET;
         if (this.y < 10) {
-            this.vy *= -1;
+            this.vy = Math.abs(this.vy);
             this.y = 11;
-        } else if (this.y > canvas.height - this.height - UI_OFFSET) {
-            this.vy *= -1;
-            this.y = Math.max(10, canvas.height - this.height - UI_OFFSET - 2);
+        } else if (this.y > maxAllowedY) {
+            this.vy = -Math.abs(this.vy);
+            this.y = Math.max(10, maxAllowedY - 2);
         }
         
         this.animationTick += 0.05;
@@ -397,12 +438,15 @@ summonBtn.addEventListener('click', async () => {
         return;
     }
 
+    const spawnX = Math.random() * (canvas.width - 100) + 20;
+    const spawnY = Math.random() * Math.max(50, canvas.height - 100 - UI_OFFSET) + 20;
+
     const newGhostData = {
         name: ghostNameInput.value.trim() || "BLOOKY",
         url: finalAudioUrl,
         accessory: accessoryDataUrl || "",
-        x: Math.random() * (canvas.width - 120) + 40,
-        y: Math.random() * Math.max(80, canvas.height - 100 - UI_OFFSET) + 30
+        x: spawnX,
+        y: spawnY
     };
 
     if (supabaseClient) {
@@ -483,10 +527,21 @@ function startChiptuneSynthesizer(ghost) {
     }, 250);
 }
 
-canvas.addEventListener('click', (e) => {
+// Universal Canvas Click/Tap Handler for Desktop and Mobile
+function handleCanvasClick(e) {
     const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
+    let clickX = e.clientX;
+    let clickY = e.clientY;
+
+    if (e.changedTouches && e.changedTouches.length > 0) {
+        clickX = e.changedTouches[0].clientX;
+        clickY = e.changedTouches[0].clientY;
+    } else if (clickX === undefined) {
+        return;
+    }
+
+    clickX -= rect.left;
+    clickY -= rect.top;
 
     initializeSystemAudioEngine();
 
@@ -495,9 +550,11 @@ canvas.addEventListener('click', (e) => {
             toggleGhostMusicTrack(ghost);
         }
     });
-});
+}
 
-// TOGGLE GHOST TRACK (PAUSE / RESUME AUDIO)
+canvas.addEventListener('click', handleCanvasClick);
+
+// TOGGLE GHOST TRACK
 function toggleGhostMusicTrack(ghost) {
     if (synthInterval) {
         clearInterval(synthInterval);
