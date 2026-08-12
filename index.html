@@ -3,57 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ghost Station 🌌</title>
+    <title>Pixel Ghost Station 🌌</title>
     <link rel="stylesheet" href="style.css">
-    
-    <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
 </head>
 <body>
 
-    <!-- Full-Screen Interactive Playground Canvas -->
-    <canvas id="game-screen"></canvas>
-
-    <!-- Floating Clean Control Deck -->
-    <div id="floating-deck">
-        <div class="control-group">
-            <input type="text" id="ghostName" placeholder="GHOST NAME..." maxlength="10">
-            <button class="btn" id="openStudioBtn">🌸 Draw</button>
-        </div>
-        
-        <div class="control-group">
-            <input type="text" id="trackUrl" placeholder="PASTE YOUTUBE / SPOTIFY / MP3 LINK...">
-            <label class="file-label btn" for="audioFileInput">📁 File</label>
-            <input type="file" id="audioFileInput" accept="audio/*">
-            <button class="btn btn-summon" id="summonBtn">Summon 👻</button>
-        </div>
-    </div>
-
-    <!-- Drawing Modal -->
-    <div id="studio-modal">
-        <div class="studio-box">
-            <h3>DRAW ACCESSORY</h3>
-            
-            <canvas id="drawCanvas" width="128" height="128"></canvas>
-            
-            <div class="palette">
-                <div class="color-swatch active" data-color="#ff4757" style="background: #ff4757;"></div>
-                <div class="color-swatch" data-color="#ffa502" style="background: #ffa502;"></div>
-                <div class="color-swatch" data-color="#2ed573" style="background: #2ed573;"></div>
-                <div class="color-swatch" data-color="#00d2d3" style="background: #00d2d3;"></div>
-                <div class="color-swatch" data-color="#ffffff" style="background: #ffffff;"></div>
-                <div class="color-swatch" data-color="transparent" style="background: #110c24; border: 1px dashed #ff4757;" title="Eraser">❌</div>
-            </div>
-            <div class="control-group">
-                <button class="btn btn-cancel" id="cancelStudioBtn">Cancel</button>
-                <button class="btn btn-bake" id="bakeAssetBtn">Save 💾</button>
-            </div>
-        </div>
-    </div>
-
+    <!-- Audio Stream Element -->
     <audio id="streamPlayer" crossorigin="anonymous"></audio>
 
-    <script src="config.js"></script>
+    <!-- Master Mute Button -->
+    <button id="muteToggleBtn" class="mute-btn" title="Toggle Mute">🔊</button>
+
+    <!-- Canvas Screen -->
+    <canvas id="game-screen"></canvas>
+
+    <!-- Floating UI Deck -->
+    <div id="floating-deck">
+        <div class="control-group">
+            <input type="text" id="ghostName" placeholder="GHOST NAME..." maxlength="12">
+            <input type="text" id="ghostQuote" placeholder="VIBE QUOTE (E.G. BOO!)..." maxlength="18">
+            <button class="btn" id="openStudioBtn">🌸 DRAW</button>
+        </div>
+        <div class="control-group">
+            <input type="text" id="trackUrl" placeholder="PASTE YOUTUBE / SPOTIFY / MP3 LINK...">
+            <label for="audioFileInput" class="btn file-label">📁 FILE</label>
+            <input type="file" id="audioFileInput" accept="audio/*">
+            <button class="btn btn-summon" id="summonBtn">SUMMON 👻</button>
+            <button class="btn btn-share" id="shareBtn" title="Share Current Active Ghost">🔗 SHARE</button>
+        </div>
+    </div>
+
+    <!-- Drawing Studio Modal -->
+    <div id="studio-modal">
+        <div class="studio-box">
+            <h3>DESIGN ACCESSORY</h3>
+            <canvas id="drawCanvas" width="160" height="160"></canvas>
+            <div class="palette">
+                <div class="color-swatch active" data-color="#ff4757" style="background: #ff4757;"></div>
+                <div class="color-swatch" data-color="#2ed573" style="background: #2ed573;"></div>
+                <div class="color-swatch" data-color="#1e90ff" style="background: #1e90ff;"></div>
+                <div class="color-swatch" data-color="#ffa502" style="background: #ffa502;"></div>
+                <div class="color-swatch" data-color="#ffffff" style="background: #ffffff;"></div>
+                <div class="color-swatch" data-color="transparent" style="background: #1e1233; border: 1px dashed #aaa;">🧹</div>
+            </div>
+            <div class="studio-actions">
+                <button class="btn btn-cancel" id="cancelStudioBtn">CANCEL</button>
+                <button class="btn btn-bake" id="bakeAssetBtn">BAKE 🌸</button>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>

@@ -8,13 +8,13 @@ body, html {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background-color: #0b0914;
+    background-color: #050716;
     font-family: 'Courier New', Courier, monospace;
     color: #5cfade;
     user-select: none;
 }
 
-/* Full Screen Canvas Playground */
+/* Canvas Screen */
 #game-screen {
     display: block;
     width: 100vw;
@@ -23,13 +23,39 @@ body, html {
     cursor: pointer;
 }
 
-/* Minimalist Floating Controls at Bottom */
+/* Master Mute Button - Highest Priority Pointer Isolation */
+.mute-btn {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    background: rgba(18, 12, 38, 0.95);
+    border: 2px solid #7209b7;
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    font-size: 20px;
+    cursor: pointer;
+    z-index: 99999;
+    pointer-events: auto;
+    transition: transform 0.05s ease, border-color 0.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+}
+
+.mute-btn:active {
+    transform: scale(0.9);
+    border-color: #ff007f;
+}
+
+/* Floating Controls Deck */
 #floating-deck {
     position: absolute;
     bottom: 16px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(18, 12, 38, 0.88);
+    background: rgba(18, 12, 38, 0.92);
     backdrop-filter: blur(8px);
     border: 2px solid #7209b7;
     border-radius: 16px;
@@ -38,20 +64,20 @@ body, html {
     flex-direction: column;
     gap: 8px;
     width: 92%;
-    max-width: 500px;
+    max-width: 540px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
     z-index: 10;
 }
 
 .control-group {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     align-items: center;
 }
 
 input[type="text"] {
     flex: 1;
-    min-width: 0; /* Prevents overflow inside flex containers */
+    min-width: 0;
     background-color: rgba(36, 17, 66, 0.8);
     border: 2px solid #7209b7;
     border-radius: 8px;
@@ -90,7 +116,7 @@ input[type="text"]::placeholder {
     font-weight: bold;
     font-size: 0.75rem;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
     text-transform: uppercase;
     white-space: nowrap;
 }
@@ -102,6 +128,10 @@ input[type="text"]::placeholder {
 
 .btn-summon {
     background-color: #ff007f;
+}
+
+.btn-share {
+    background-color: #3a0ca3;
 }
 
 .btn-cancel {
@@ -148,7 +178,7 @@ input[type="text"]::placeholder {
     width: 160px;
     height: 160px;
     border-radius: 12px;
-    touch-action: none; /* Prevents touch scrolling on drawing canvas */
+    touch-action: none;
 }
 
 .palette {
@@ -179,11 +209,11 @@ audio {
     display: none;
 }
 
-/* Compact Touch-Optimized Mobile Layout */
+/* Mobile Adjustments */
 @media (max-width: 600px) {
     #floating-deck {
-        width: 95%;
-        padding: 8px 10px;
+        width: 96%;
+        padding: 8px;
         bottom: 10px;
         gap: 6px;
     }
@@ -191,16 +221,16 @@ audio {
     .control-group {
         display: flex;
         flex-direction: row;
-        gap: 6px;
+        gap: 4px;
     }
 
     input[type="text"] {
-        font-size: 0.7rem;
-        padding: 6px 8px;
+        font-size: 0.65rem;
+        padding: 6px;
     }
 
     .btn {
-        padding: 6px 10px;
-        font-size: 0.7rem;
+        padding: 6px 8px;
+        font-size: 0.65rem;
     }
 }
