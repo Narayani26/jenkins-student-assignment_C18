@@ -129,7 +129,7 @@ function spawnSmokePoof(x, y) {
     }
 }
 
-// Dynamic Canvas Resize & Responsive UI Bounds
+// Dynamic Canvas Resize
 function resizeCanvasToWindow() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -145,7 +145,7 @@ resizeCanvasToWindow();
 
 dCtx.imageSmoothingEnabled = true;
 
-// Parallax Starfield & Real-time Wind Stream Setup
+// Parallax Starfield & Wind Setup
 for (let i = 0; i < 60; i++) {
     starsField.push({
         x: Math.random() * window.innerWidth,
@@ -165,12 +165,11 @@ for (let i = 0; i < 25; i++) {
     });
 }
 
-// Screen Capacity Limits
 function getMaxGhostLimit() {
     const w = window.innerWidth;
-    if (w < 600) return 8;       // Mobile: Max 8
-    if (w < 1024) return 16;     // Tablet: Max 16
-    return 30;                   // Desktop: Max 30
+    if (w < 600) return 8;       
+    if (w < 1024) return 16;     
+    return 30;                   
 }
 
 function shuffleArray(array) {
@@ -182,10 +181,10 @@ function shuffleArray(array) {
     return arr;
 }
 
-// LOCALSTORAGE CACHE HELPERS (PERSISTENT KEY)
+// LOCALSTORAGE CACHE HELPERS
 function getCachedGhosts() {
     try {
-        const cached = localStorage.getItem('pixel_ghost_cache_prod_v1');
+        const cached = localStorage.getItem('pixel_ghost_cache_prod_final');
         return cached ? JSON.parse(cached) : null;
     } catch (e) { return null; }
 }
@@ -199,9 +198,9 @@ function setCachedGhosts(data) {
             accessory: g.accessory ? g.accessory.src : "",
             x: g.x,
             y: g.y,
-            quote: g.quote
+            quote: g.quote || ""
         }));
-        localStorage.setItem('pixel_ghost_cache_prod_v1', JSON.stringify(serializable));
+        localStorage.setItem('pixel_ghost_cache_prod_final', JSON.stringify(serializable));
     } catch (e) {}
 }
 
@@ -338,7 +337,7 @@ class GameGhost {
         this.id = id || Date.now().toString();
         this.name = name ? name.toUpperCase() : "BLOOKY";
         this.url = streamUrl || "";
-        this.quote = quote || "";
+        this.quote = quote || "BOO!";
         this.hasOpenedExternalTab = false;
         
         this.accessory = null;
@@ -553,7 +552,7 @@ function playBoopSqueakSound() {
     } catch(e) {}
 }
 
-// INSTANT 0ms NON-BLOCKING STREAMING FETCH ENGINE
+// INSTANT NON-BLOCKING STREAMING FETCH ENGINE
 async function fetchGhosts() {
     if (!supabaseClient) return;
     try {
@@ -568,11 +567,11 @@ async function fetchGhosts() {
             selectedGhostsData = shuffleArray(remoteGhosts).slice(0, limit - 1);
         }
 
-        // Direct Stream Push (100ms interval for smooth non-blocking cascade)
+        // Seamless 0ms merge
         selectedGhostsData.forEach((g, idx) => {
             if (!activeGhosts.some(existing => existing.id === g.id)) {
                 setTimeout(() => {
-                    const newG = new GameGhost(g.id, g.name, g.url, g.accessory, g.x, g.y, g.quote);
+                    const newG = new GameGhost(g.id, g.name, g.url, g.accessory, g.x, g.y, g.quote || "BOO!");
                     activeGhosts.push(newG);
                     spawnSmokePoof(newG.x + 22, newG.y + 26);
                     setCachedGhosts(activeGhosts);
@@ -593,7 +592,7 @@ function subscribeToGhosts() {
                     if (activeGhosts.length >= getMaxGhostLimit() && activeGhosts.length > 1) {
                         activeGhosts.splice(1, 1);
                     }
-                    const newG = new GameGhost(g.id, g.name, g.url, g.accessory, g.x, g.y, g.quote);
+                    const newG = new GameGhost(g.id, g.name, g.url, g.accessory, g.x, g.y, g.quote || "BOO!");
                     activeGhosts.push(newG);
                     spawnSmokePoof(newG.x + 22, newG.y + 26);
                     setCachedGhosts(activeGhosts);
@@ -618,7 +617,7 @@ if (shareBtn) {
     });
 }
 
-// Summon Button
+// Summon Button (With Full Persistence & Error Alerts)
 if (summonBtn) {
     summonBtn.addEventListener('click', async () => {
         const rawUrlInput = trackUrlInput.value.trim();
@@ -634,8 +633,8 @@ if (summonBtn) {
             return;
         }
 
-        const spawnX = Math.random() * (canvas.width - 100) + 20;
-        const spawnY = Math.random() * Math.max(50, canvas.height - 100 - UI_OFFSET) + 20;
+        const spawnX = Math.floor(Math.random() * (canvas.width - 100) + 20);
+        const spawnY = Math.floor(Math.random() * Math.max(50, canvas.height - 100 - UI_OFFSET) + 20);
 
         spawnSmokePoof(spawnX + 22, spawnY + 26);
 
@@ -652,18 +651,35 @@ if (summonBtn) {
             activeGhosts.splice(1, 1);
         }
 
-        const newGhostObj = new GameGhost(Date.now().toString(), newGhostData.name, newGhostData.url, newGhostData.accessory, newGhostData.x, newGhostData.y, newGhostData.quote);
+        const tempId = "temp_" + Date.now();
+        const newGhostObj = new GameGhost(tempId, newGhostData.name, newGhostData.url, newGhostData.accessory, newGhostData.x, newGhostData.y, newGhostData.quote);
         activeGhosts.push(newGhostObj);
         setCachedGhosts(activeGhosts);
 
         if (supabaseClient) {
             try {
-                const { data, error } = await supabaseClient.from('ghosts').insert([newGhostData]).select();
-                if (data && data.length > 0) {
+                summonBtn.disabled = true;
+                summonBtn.innerText = "Saving... ⏳";
+
+                const { data, error } = await supabaseClient
+                    .from('ghosts')
+                    .insert([newGhostData])
+                    .select();
+
+                if (error) {
+                    console.error("Supabase Error:", error);
+                    alert(`Database Insert Error (${error.code}): ${error.message}`);
+                } else if (data && data.length > 0) {
                     newGhostObj.id = data[0].id;
                     setCachedGhosts(activeGhosts);
                 }
-            } catch (err) {}
+            } catch (err) {
+                console.error("Network Exception:", err);
+                alert("Network Connection Error: " + err.message);
+            } finally {
+                summonBtn.disabled = false;
+                summonBtn.innerText = "Summon 👻";
+            }
         }
 
         ghostNameInput.value = "";
@@ -838,12 +854,12 @@ audio.addEventListener('ended', () => {
 // REAL-TIME ATMOSPHERIC SKY GRADIENT ENGINE WITH CELESTIAL SUN/MOON
 function renderAtmosphericSky() {
     const now = new Date();
-    const timeFrac = now.getHours() + now.getMinutes() / 60; // 0.0 to 23.99
+    const timeFrac = now.getHours() + now.getMinutes() / 60; 
 
     let gradient = sCtx.createLinearGradient(0, 0, 0, canvas.height);
 
     if (timeFrac >= 5 && timeFrac < 9) {
-        // Dawn to Morning (Purple-Blue Lavender Shift)
+        // Dawn to Morning (Lavender / Purple Shift)
         gradient.addColorStop(0, '#2b1b4d');
         gradient.addColorStop(1, '#120d2b');
     } else if (timeFrac >= 9 && timeFrac < 17) {
@@ -863,7 +879,7 @@ function renderAtmosphericSky() {
     sCtx.fillStyle = gradient;
     sCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Render Celestial Body (Sun/Moon)
+    // Celestial Sun/Moon
     sCtx.save();
     if (timeFrac >= 6 && timeFrac < 18) {
         // Pixel Sun
@@ -876,7 +892,7 @@ function renderAtmosphericSky() {
         sCtx.fillStyle = '#fffb96';
         sCtx.fillRect(sunX - 8, sunY - 8, 16, 16);
     } else {
-        // Pixel Crescent Moon
+        // Pixel Moon
         const moonX = canvas.width - 80;
         const moonY = 60;
         sCtx.fillStyle = 'rgba(92, 250, 222, 0.15)';
@@ -893,7 +909,6 @@ function renderAtmosphericSky() {
 
 // Main Animation Loop
 function gameMainLoop() {
-    // Render Sky Gradient, Sun/Moon
     renderAtmosphericSky();
 
     if (audioAnalyser && currentlySingingGhost && audio.src && !audio.paused) {
@@ -902,7 +917,7 @@ function gameMainLoop() {
         for (let i = 0; i < soundWavesArray.length; i++) soundWavesArray[i] *= 0.85;
     }
 
-    // Equalizer Background Bars
+    // Equalizer Bars
     const totalBars = 24;
     const barThickness = canvas.width / totalBars;
     for (let i = 0; i < totalBars; i++) {
@@ -912,7 +927,7 @@ function gameMainLoop() {
         sCtx.fillRect(i * barThickness, canvas.height - panelHeight, barThickness - 4, panelHeight);
     }
 
-    // Stars - Pure Crisp White Pixel Dust
+    // Stars
     starsField.forEach(star => {
         let speed = star.speed * (currentlySingingGhost ? (1 + soundWavesArray[2] / 30) : 1);
         star.y += speed;
@@ -921,7 +936,7 @@ function gameMainLoop() {
         sCtx.fillRect(Math.floor(star.x), Math.floor(star.y), star.size, star.size);
     });
 
-    // Real-Time Wind Gust Particles
+    // Real-Time Wind Currents
     sCtx.save();
     windParticles.forEach(w => {
         w.x += w.speed;
@@ -934,7 +949,7 @@ function gameMainLoop() {
     });
     sCtx.restore();
 
-    // Render Magician Smoke Poofs
+    // Magician Smoke Poofs
     for (let i = smokeParticles.length - 1; i >= 0; i--) {
         const p = smokeParticles[i];
         p.x += p.vx; p.y += p.vy;
@@ -949,7 +964,7 @@ function gameMainLoop() {
         sCtx.restore();
     }
 
-    // Cursor Trail Particles
+    // Cursor Sparks
     for (let i = cursorParticles.length - 1; i >= 0; i--) {
         const p = cursorParticles[i];
         p.y += p.vy; p.alpha -= 0.02;
@@ -992,13 +1007,13 @@ function checkSharedGhostUrl() {
     if (cachedData && Array.isArray(cachedData) && cachedData.length > 0) {
         cachedData.forEach(g => {
             if (g.name !== "BLOOKY" && g.id !== "default_1") {
-                activeGhosts.push(new GameGhost(g.id, g.name, g.url, g.accessory, g.x, g.y, g.quote));
+                activeGhosts.push(new GameGhost(g.id, g.name, g.url, g.accessory, g.x, g.y, g.quote || "BOO!"));
             }
         });
     }
 })();
 
-// Start Canvas Loop Immediately
+// Start Canvas Loop
 gameMainLoop();
 
 setTimeout(() => {
